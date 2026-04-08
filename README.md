@@ -29,7 +29,10 @@ An AI-powered trading workstation with live market data, a simulated portfolio, 
    # macOS/Linux
    ./scripts/start_mac.sh
 
-   # Windows
+   # WSL-Ubuntu (Windows Subsystem for Linux)
+   ./scripts/start_wsl.sh
+
+   # Windows (PowerShell)
    .\scripts\start_windows.ps1
    ```
 
@@ -54,6 +57,24 @@ uv run uvicorn app.main:app --reload --port 8000
 ```bash
 cd frontend
 npm install && npm run dev
+```
+
+## WSL-Ubuntu Notes
+
+Running FinAlly inside WSL2 (Ubuntu) requires Docker to be available in the WSL environment:
+
+- **Option A — Docker Desktop (recommended)**: Install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/) and enable **Settings → Resources → WSL Integration** for your Ubuntu distro. Docker will be available inside WSL automatically.
+- **Option B — Docker Engine in WSL2**: Install Docker Engine directly inside Ubuntu following the [official guide](https://docs.docker.com/engine/install/ubuntu/). Start the daemon with `sudo service docker start` before running the script.
+
+**Browser auto-open**: The script tries `wslview` (from the `wslu` package), then `explorer.exe`, then `cmd.exe /c start`. Install `wslu` for the best experience:
+
+```bash
+sudo apt install wslu
+```
+
+**Stop the app**:
+```bash
+./scripts/stop_wsl.sh
 ```
 
 ## Testing
