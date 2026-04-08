@@ -29,11 +29,38 @@ An AI-powered trading workstation with live market data, a simulated portfolio, 
    # macOS/Linux
    ./scripts/start_mac.sh
 
-   # Windows
+   # WSL-Ubuntu (Windows Subsystem for Linux)
+   ./scripts/start_wsl.sh
+
+   # Windows (PowerShell)
    .\scripts\start_windows.ps1
    ```
 
 3. Open `http://localhost:8000`
+
+## WSL-Ubuntu Notes
+
+If you are running on **Windows Subsystem for Linux (WSL2)**, use the dedicated scripts:
+
+```bash
+# Start
+./scripts/start_wsl.sh
+
+# Stop
+./scripts/stop_wsl.sh
+
+# Force rebuild image before starting
+./scripts/start_wsl.sh --build
+```
+
+**Prerequisites for WSL2:**
+- **Docker Desktop** (recommended): Install Docker Desktop for Windows, enable the WSL2 backend, and enable WSL integration for your Ubuntu distribution under *Settings → Resources → WSL Integration*.
+- **Docker Engine in WSL2** (alternative): Install Docker Engine directly inside Ubuntu and start the daemon with `sudo service docker start`.
+
+**Browser auto-open:** The script uses `wslview` (from the `wslu` package) to open your Windows browser. Install it with:
+```bash
+sudo apt install wslu
+```
 
 ## Environment Variables
 

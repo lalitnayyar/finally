@@ -95,6 +95,8 @@ finally/
 ├── scripts/
 │   ├── start_mac.sh          # Launch Docker container (macOS/Linux)
 │   ├── stop_mac.sh           # Stop Docker container (macOS/Linux)
+│   ├── start_wsl.sh          # Launch Docker container (WSL-Ubuntu)
+│   ├── stop_wsl.sh           # Stop Docker container (WSL-Ubuntu)
 │   ├── start_windows.ps1     # Launch Docker container (Windows PowerShell)
 │   └── stop_windows.ps1      # Stop Docker container (Windows PowerShell)
 ├── test/                     # Playwright E2E tests + docker-compose.test.yml
@@ -420,7 +422,18 @@ The `db/` directory in the project root maps to `/app/db` in the container. The 
 - Stops and removes the running container
 - Does NOT remove the volume (data persists)
 
-**`scripts/start_windows.ps1`** / **`scripts/stop_windows.ps1`**: PowerShell equivalents for Windows.
+**`scripts/start_wsl.sh`** (WSL-Ubuntu):
+- Verifies Docker is installed and the daemon is reachable (supports both Docker Desktop with WSL2 backend and Docker Engine installed directly in WSL2)
+- Builds the Docker image if not already built (or if `--build` flag passed)
+- Runs the container with the volume mount, port mapping, and `.env` file
+- Prints the URL to access the app
+- Attempts to open the Windows browser via `wslview` (wslu package), `explorer.exe`, or `cmd.exe /c start` — with a friendly fallback message if none are available
+
+**`scripts/stop_wsl.sh`** (WSL-Ubuntu):
+- Stops and removes the running container
+- Does NOT remove the volume (data persists)
+
+**`scripts/start_windows.ps1`** / **`scripts/stop_windows.ps1`**: PowerShell equivalents for native Windows.
 
 All scripts should be idempotent — safe to run multiple times.
 
