@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -28,7 +28,7 @@ class TestCreateStreamRouter:
         router = create_stream_router(cache)
 
         paths = [route.path for route in router.routes]
-        assert "/prices" in paths
+        assert "/api/stream/prices" in paths
 
     def test_router_prefix(self):
         """Test that the router has the correct prefix."""
