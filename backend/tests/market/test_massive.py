@@ -199,3 +199,18 @@ class TestMassiveDataSource:
         assert cache.get_price("AAPL") == 190.50
 
         await source.stop()
+
+    async def test_start_is_idempotent(self):
+        """Test that calling start() twice does not leak a background task."""
+        cache = PriceCache()
+        source = MassiveDataSource(api_key="test-key", price_cache=cache, poll_interval=60.0)
+
+        with patch("app.market.massive_client.RESTClient"):
+            with patch.object(source, "_fetch_snapshots", return_value=[]):
+                await source.start(["AAPL"])
+                first_task = source._task
+                # Second call should be a no-op — task object must not change
+                await source.start(["GOOGL"])
+                assert source._task is first_task
+
+        await source.stop()

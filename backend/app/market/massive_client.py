@@ -39,6 +39,9 @@ class MassiveDataSource(MarketDataSource):
         self._client: RESTClient | None = None
 
     async def start(self, tickers: list[str]) -> None:
+        if self._task is not None:
+            logger.warning("Massive poller already started; ignoring duplicate start() call")
+            return
         self._client = RESTClient(api_key=self._api_key)
         self._tickers = list(tickers)
 

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from threading import Lock
 
 from .models import PriceUpdate
+
+# Maximum number of historical price points kept per ticker
+HISTORY_MAX_LEN = 200
 
 
 class PriceCache:
@@ -13,10 +17,16 @@ class PriceCache:
 
     Writers: SimulatorDataSource or MassiveDataSource (one at a time).
     Readers: SSE streaming endpoint, portfolio valuation, trade execution.
+
+    In addition to the current price, a rolling history of the last
+    HISTORY_MAX_LEN (200) PriceUpdate objects is kept per ticker so that
+    REST clients can bootstrap charts and sparklines without waiting for the
+    SSE stream to accumulate data.
     """
 
     def __init__(self) -> None:
         self._prices: dict[str, PriceUpdate] = {}
+        self._history: dict[str, deque[PriceUpdate]] = {}
         self._lock = Lock()
         self._version: int = 0  # Monotonically increasing; bumped on every update
 
@@ -25,6 +35,7 @@ class PriceCache:
 
         Automatically computes direction and change from the previous price.
         If this is the first update for the ticker, previous_price == price (direction='flat').
+        The update is appended to the rolling history buffer for the ticker.
         """
         with self._lock:
             ts = timestamp or time.time()
@@ -38,6 +49,11 @@ class PriceCache:
                 timestamp=ts,
             )
             self._prices[ticker] = update
+
+            if ticker not in self._history:
+                self._history[ticker] = deque(maxlen=HISTORY_MAX_LEN)
+            self._history[ticker].append(update)
+
             self._version += 1
             return update
 
@@ -56,15 +72,27 @@ class PriceCache:
         update = self.get(ticker)
         return update.price if update else None
 
+    def get_history(self, ticker: str) -> list[PriceUpdate]:
+        """Return the rolling price history for a ticker (up to 200 points).
+
+        Returns an empty list if the ticker is unknown or has no history.
+        The list is ordered oldest-first.
+        """
+        with self._lock:
+            hist = self._history.get(ticker)
+            return list(hist) if hist else []
+
     def remove(self, ticker: str) -> None:
-        """Remove a ticker from the cache (e.g., when removed from watchlist)."""
+        """Remove a ticker from the cache and its history (e.g., watchlist removal)."""
         with self._lock:
             self._prices.pop(ticker, None)
+            self._history.pop(ticker, None)
 
     @property
     def version(self) -> int:
         """Current version counter. Useful for SSE change detection."""
-        return self._version
+        with self._lock:
+            return self._version
 
     def __len__(self) -> int:
         with self._lock:
