@@ -4,5 +4,19 @@
     "context7@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
     "independent-reviewer@lalit-tools": true
+  },
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+      "Bash(npm run build)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)"
+    ]
   }
 }
