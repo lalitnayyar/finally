@@ -14,7 +14,7 @@ When no real-data API key is configured, a built-in Geometric Brownian Motion (G
 
 ## 3. Real Market Data via Massive / Polygon.io API
 
-Setting the `MASSIVE_API_KEY` environment variable switches the data source from the simulator to a live REST polling client backed by Polygon.io. Both sources implement the same abstract `MarketDataSource` interface, so all downstream code (cache, SSE, trade execution) is source-agnostic. Polling interval is configurable to respect free-tier rate limits (≤ 5 calls/min).
+Setting the `MASSIVE_API_KEY` environment variable switches the data source from the simulator to a live REST polling client backed by Polygon.io (`massive` is the Python package that wraps the Polygon.io API). Both sources implement the same abstract `MarketDataSource` interface, so all downstream code (cache, SSE, trade execution) is source-agnostic. Polling interval is configurable to respect free-tier rate limits (≤ 5 calls/min).
 
 ## 4. Thread-Safe In-Memory Price Cache with History
 
