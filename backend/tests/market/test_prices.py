@@ -46,11 +46,12 @@ class TestCreatePricesRouter:
 class TestPriceHistoryEndpoint:
     """Integration tests for GET /api/prices/{ticker}/history."""
 
-    def test_returns_404_for_unknown_ticker(self):
+    def test_returns_empty_list_for_unknown_ticker(self):
         cache = PriceCache()
         client = TestClient(_make_app(cache))
         response = client.get("/api/prices/ZZZZ/history")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        assert response.json() == []
 
     def test_returns_history_for_known_ticker(self):
         cache = PriceCache()
@@ -112,12 +113,13 @@ class TestPriceHistoryEndpoint:
         data = client.get("/api/prices/TSLA/history").json()
         assert [d["price"] for d in data] == prices
 
-    def test_returns_404_for_removed_ticker(self):
-        """After removal the history is gone too."""
+    def test_returns_empty_list_for_removed_ticker(self):
+        """After removal the history is gone — returns empty list, not 404."""
         cache = PriceCache()
         cache.update("NVDA", 800.00)
         cache.remove("NVDA")
         client = TestClient(_make_app(cache))
 
         response = client.get("/api/prices/NVDA/history")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        assert response.json() == []

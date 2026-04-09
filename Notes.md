@@ -23,3 +23,6 @@ Read all the documents in the planning directory, then build the complete Market
 Please read all the documentation in the planning folder. The market data backend has been implemented with tests. Please carry out a comprehensive code review , run all tests, and write your conclusion to the file MARKET_DATA_REVEW.md
 
 Ok i have merged - please switch to main and do a pull, then please carry out all the fixes and improvements that you have documented in the review file. keep working until all tests pass and the market data backend is ready . Then push your new branch to github 
+
+
+Create an Agent Team to complete the project as defined. Team-members: a Front-end engineer to work on the frontend, a  Backend API Engineer on the backend, a Database engineer on all DB related code, an LLM Engineer on the LLM Calls. While all team -members should work on until tests, there should be an Integration tester team-memeber, that builds and run end-to-end Playwright tests when ready, reporiting issues back to be fixed  by the team-members. Finally , a Devops engineer for the Docker container and the scripts.
