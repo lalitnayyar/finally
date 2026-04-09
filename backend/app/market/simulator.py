@@ -217,6 +217,9 @@ class SimulatorDataSource(MarketDataSource):
         self._task: asyncio.Task | None = None
 
     async def start(self, tickers: list[str]) -> None:
+        if self._task is not None:
+            logger.warning("Simulator already started; ignoring duplicate start() call")
+            return
         self._sim = GBMSimulator(
             tickers=tickers,
             event_probability=self._event_prob,

@@ -12,6 +12,7 @@ from .cache import PriceCache
 from .factory import create_market_data_source
 from .interface import MarketDataSource
 from .models import PriceUpdate
+from .prices import create_prices_router
 from .stream import create_stream_router
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "PriceCache",
     "MarketDataSource",
     "create_market_data_source",
+    "create_prices_router",
     "create_stream_router",
 ]

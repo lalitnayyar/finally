@@ -136,3 +136,16 @@ class TestSimulatorDataSource:
         # Just verify it starts and stops cleanly
         await asyncio.sleep(0.2)
         await source.stop()
+
+    async def test_start_is_idempotent(self):
+        """Test that calling start() twice does not leak a background task."""
+        cache = PriceCache()
+        source = SimulatorDataSource(price_cache=cache, update_interval=0.1)
+        await source.start(["AAPL"])
+        first_task = source._task
+
+        # Second call should be a no-op — the task object must not change
+        await source.start(["GOOGL"])
+        assert source._task is first_task
+
+        await source.stop()
