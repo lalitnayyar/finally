@@ -35,6 +35,27 @@ An AI-powered trading workstation with live market data, a simulated portfolio, 
 
 3. Open `http://localhost:8000`
 
+## Troubleshooting
+
+**UI changes not visible after `start_mac.sh` / Docker**
+
+The FastAPI app serves the prebuilt Next.js export from `backend/static/`. That folder is copied into the image at build time. After you change the frontend, rebuild the static files, sync them into `backend/static/`, then rebuild the Docker image:
+
+```bash
+cd frontend && npm run build:sync
+cd .. && ./scripts/start_mac.sh --build
+```
+
+On Windows: `.\scripts\start_windows.ps1 --build`
+
+**Wrong `rsync` paths**
+
+From the repo root, use `rsync -a frontend/out/ backend/static/`. From inside `frontend/`, use `npm run sync:static` (see `frontend/package.json`) so paths resolve correctly.
+
+**Docker: “BuildKit is enabled but the buildx component is missing”**
+
+The start scripts run `docker build` with the **classic** builder (`DOCKER_BUILDKIT=0`) so a normal Docker install works without the **buildx** plugin. If you prefer BuildKit, install [buildx](https://docs.docker.com/go/buildx/) and you can run builds with `DOCKER_BUILDKIT=1 docker build ...` yourself.
+
 ## Environment Variables
 
 | Variable | Required | Description |

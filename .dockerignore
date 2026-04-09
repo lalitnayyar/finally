@@ -1,0 +1,48 @@
+# Git (often hundreds of MB — not needed for COPY)
+.git
+.gitattributes
+
+# Frontend — installed / built inside the image
+frontend/node_modules
+frontend/.next
+frontend/out
+
+# Backend — static export is produced by the frontend-builder stage
+backend/static
+
+# Python / tooling caches
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.cache
+.venv
+venv
+**/.venv
+
+# Local DB and data
+db
+**/*.db
+
+# Tests and non-runtime assets
+test
+coverage
+htmlcov
+
+# Docs / notes (not copied by Dockerfile)
+planning
+troubleshooting
+
+# Editor / OS noise
+.cursor
+.vscode
+.idea
+**/.DS_Store
+Thumbs.db
+
+# Env files (runtime uses --env-file; do not bake secrets)
+.env
+.env.*
+!.env.example
+
+*.log

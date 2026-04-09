@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from .cache import PriceCache
 
@@ -37,13 +37,6 @@ def create_prices_router(price_cache: PriceCache) -> APIRouter:
         """
         normalized = ticker.upper().strip()
         history = price_cache.get_history(normalized)
-
-        if not history:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No price history available for {normalized}. "
-                "Ticker may not be on the watchlist or data has not yet been seeded.",
-            )
 
         return [update.to_dict() for update in history]
 
