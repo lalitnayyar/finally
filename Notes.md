@@ -19,3 +19,7 @@ Read all the documents in the planning directory, then build the complete Market
 2. The unified market data interface
 3. The market data simulator
 4.include full unit tests
+
+Please read all the documentation in the planning folder. The market data backend has been implemented with tests. Please carry out a comprehensive code review , run all tests, and write your conclusion to the file MARKET_DATA_REVEW.md
+
+Ok i have merged - please switch to main and do a pull, then please carry out all the fixes and improvements that you have documented in the review file. keep working until all tests pass and the market data backend is ready . Then push your new branch to github 
