@@ -251,17 +251,15 @@ command: npx playwright test
 | A2 | Keeping `backend/static/` available in the repo will still be useful for contributor/backend-served local runs after the source app is restored. [ASSUMED] | Architecture Patterns | Medium; if the team prefers fully generated artifacts only, local workflow tasks will differ. |
 | A3 | React 19.x is the correct React major for the restored Next.js stack, and the exact pin should be resolved when `frontend/package-lock.json` is created. [ASSUMED] | Standard Stack | Low; the exact React pin is implementation detail as long as it matches the chosen Next.js release. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should generated `backend/static/` remain committed after `frontend/` is restored?**
-   - What we know: The repo currently serves `backend/static/` locally and from the container, and D-02 only locks source-of-truth, not git policy. [VERIFIED: repo files]
-   - What's unclear: Whether the desired contributor experience is “always build before backend serve” or “keep generated assets committed for convenience.” [ASSUMED]
-   - Recommendation: Decide this during planning, because it affects docs, ignore rules, and smoke-test shape. [ASSUMED]
+   - Decision: Yes. Keep generated `backend/static/` committed in git for convenience and backend-served local/runtime flows, but treat it strictly as generated output from `frontend/`, never editable source.
+   - Planning implication: Phase 1 plans should preserve `backend/static/` in the repo, add or retain deterministic sync/regeneration steps, and avoid any wording that implies artifact-only source ownership.
 
 2. **How much UI fidelity is required in Phase 1 versus later UI phases?**
-   - What we know: Phase 1 must restore a source-backed workstation and reopen the same local product shape, but Phase 4 owns the dense workstation polish. [VERIFIED: repo files]
-   - What's unclear: The minimum acceptable restored UI surface for launch reproducibility without over-consuming later UI work. [ASSUMED]
-   - Recommendation: Plan for a minimal source-faithful shell that satisfies launch, routing, and current testability, then defer visual upgrades to Phase 4. [ASSUMED]
+   - Decision: Phase 1 should match the currently shipped UI more closely while restoring source-backed reproducibility, but should not absorb the dense workstation polish and visual upgrades reserved for Phase 4.
+   - Planning implication: Frontend restoration should target a faithful recreation of the current served UI shape and landmarks so launch/reproducibility verification is meaningful, while leaving major visual enhancement work to the later workstation-visuals phase.
 
 ## Environment Availability
 

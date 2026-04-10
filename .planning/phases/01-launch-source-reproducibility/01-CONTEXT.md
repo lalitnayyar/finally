@@ -16,6 +16,8 @@ Restore a reliable, source-backed launch path for FinAlly so a student can start
 ### Frontend source restoration
 - **D-01:** Rebuild a fresh `frontend/` source app from the product contract in `planning/PLAN.md` and the shipped runtime behavior, rather than trying to preserve or reverse-engineer the old internal frontend structure.
 - **D-02:** `backend/static/` should become the generated output of the restored `frontend/` source app, not the primary editable source of truth.
+- **D-09:** Keep generated `backend/static/` committed in git after `frontend/` is restored, but treat it strictly as generated output rather than editable source.
+- **D-10:** Phase 1 should match the currently shipped UI more closely while restoring source-backed reproducibility; dense workstation polish beyond that still belongs to Phase 4.
 
 ### Startup workflow
 - **D-03:** Docker remains the authoritative student workflow for v1. The one-command path should be the main documented way course students launch FinAlly.
