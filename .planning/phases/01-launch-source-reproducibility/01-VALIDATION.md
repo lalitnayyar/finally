@@ -38,11 +38,11 @@ created: 2026-04-10
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 0 | PLAT-04 | T-01-01 | Frontend source is restored without relying on hand-edited generated assets | build/smoke | `docker build -t finally .` | ❌ W0 | ⬜ pending |
-| 01-01-02 | 01 | 0 | PLAT-01 | T-01-02 | Student launch path validates `.env` without exposing secret values | smoke | `./scripts/start_mac.sh` plus launch smoke | ❌ W0 | ⬜ pending |
-| 01-02-01 | 02 | 1 | PLAT-02 | T-01-03 | UI and API are served from the same containerized origin | e2e | `cd test && npx playwright test specs/launch.spec.ts` | ❌ W0 | ⬜ pending |
-| 01-02-02 | 02 | 1 | PLAT-03 | T-01-04 | App boots successfully with simulator defaults when `MASSIVE_API_KEY` is absent | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
-| 01-03-01 | 03 | 1 | MKT-05 | T-01-05 | Market source selection stays env-driven: simulator by default, Massive when configured | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
+| 01-01-01 | 01 | 1 | PLAT-04 | T-01-01 | Frontend source is restored without relying on hand-edited generated assets | build/smoke | `docker build -t finally .` | ❌ W0 | ⬜ pending |
+| 01-02-01 | 02 | 1 | PLAT-01 | T-01-04 | Student launch path validates `.env` and `OPENROUTER_API_KEY` without exposing secret values | smoke | `./scripts/start_mac.sh` plus launch smoke | ❌ W0 | ⬜ pending |
+| 01-02-01 | 02 | 1 | PLAT-03 | T-01-07 | App boots successfully with simulator defaults when `MASSIVE_API_KEY` is absent | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
+| 01-02-01 | 02 | 1 | MKT-05 | T-01-07 | Market source selection stays env-driven: simulator by default, Massive when configured | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
+| 01-03-01 | 03 | 2 | PLAT-02 | T-01-09 | UI and API are served from the same containerized origin | e2e | `cd test && npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
