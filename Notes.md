@@ -29,3 +29,8 @@ Create an Agent Team to complete the project as defined. Team-members: a Front-e
 
 ## GSD 
 https://github.com/gsd-build/get-shit-done
+
+gsd new project 
+
+What do you want to build?
+Please build the entire project - everything as described in planning/PLAN.md
