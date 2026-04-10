@@ -30,7 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The app serves the frontend and API from one local origin in the intended single-container runtime.
   3. The workstation launches successfully with simulator defaults when optional external API keys are not present.
   4. The frontend served by the app can be rebuilt from source in this repository and reopened as the same local workstation.
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Restore `frontend/` as the source-authoritative app and wire reproducible static export output into `backend/static` and Docker.
+- [ ] 01-02-PLAN.md — Harden the Docker-first student launch path, env handling, and secondary contributor workflow documentation.
+- [ ] 01-03-PLAN.md — Add launch-path verification, same-origin runtime checks, and aligned Playwright container coverage.
 
 ### Phase 2: Live Market & Watchlist Runtime
 **Goal**: Users can rely on live market streaming and persisted watchlist behavior as the workstation's shared runtime foundation.
@@ -97,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Launch & Source Reproducibility | 0/TBD | Not started | - |
+| 1. Launch & Source Reproducibility | 0/3 | Not started | - |
 | 2. Live Market & Watchlist Runtime | 0/TBD | Not started | - |
 | 3. Trading & Portfolio Integrity | 0/TBD | Not started | - |
 | 4. Workstation Experience & Visuals | 0/TBD | Not started | - |
