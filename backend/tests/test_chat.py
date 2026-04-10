@@ -86,3 +86,22 @@ async def test_chat_error_handling(client, monkeypatch):
     assert "trouble connecting" in data["message"]
     assert data["trades"] == []
     assert data["watchlist_changes"] == []
+
+
+def test_call_llm_requires_openrouter_api_key(monkeypatch):
+    from app.llm import chat as chat_module
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_MOCK", raising=False)
+
+    with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
+        chat_module.call_llm([{"role": "user", "content": "Hello"}])
+
+
+def test_validate_chat_environment_allows_mock_mode(monkeypatch):
+    from app.llm import chat as chat_module
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_MOCK", "true")
+
+    chat_module.validate_chat_environment()

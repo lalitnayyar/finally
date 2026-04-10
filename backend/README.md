@@ -2,6 +2,13 @@
 
 FastAPI backend for the FinAlly AI Trading Workstation.
 
+## Runtime Contract
+
+- Student workflow: start the container from the repo root with `./scripts/start_mac.sh` or `.\scripts\start_windows.ps1`
+- Contributor workflow: run `uv run uvicorn app.main:app --reload --port 8000` from `backend/`
+- `OPENROUTER_API_KEY` is required for normal startup unless `LLM_MOCK=true`
+- `MASSIVE_API_KEY` is optional; when missing, the backend uses the simulator by default
+
 ## Structure
 
 - `app/` - Application code
@@ -21,35 +28,22 @@ FastAPI backend for the FinAlly AI Trading Workstation.
 ## Running Tests
 
 ```bash
-# Install dependencies
 uv sync --dev
 
-# Run all tests
 uv run pytest
-
-# Run with coverage
-uv run pytest --cov=app --cov-report=html
-
-# Run specific test file
-uv run pytest tests/market/test_simulator.py
-
-# Run with verbose output
-uv run pytest -v
 ```
 
 ## Environment Variables
 
+- `OPENROUTER_API_KEY` - Required for live LLM chat during normal startup.
 - `MASSIVE_API_KEY` - Optional. If set, use real market data from Massive API. If not set, use the built-in simulator.
+- `LLM_MOCK` - Optional. Set to `true` for deterministic local or CI chat behavior.
 
 ## Development
 
 ```bash
-# Install dependencies
 uv sync --dev
 
-# Run linter
-uv run ruff check .
-
-# Format code
-uv run ruff format .
+# Run backend locally
+uv run uvicorn app.main:app --reload --port 8000
 ```

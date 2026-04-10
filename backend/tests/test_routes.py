@@ -5,6 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 os.environ["MASSIVE_API_KEY"] = ""  # Force simulator
+os.environ["LLM_MOCK"] = "true"
 
 
 @pytest.fixture

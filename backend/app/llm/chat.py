@@ -1,20 +1,20 @@
 import json
 import os
 import re
-from pathlib import Path
 
-from dotenv import load_dotenv
 from litellm import completion
 
-from app.db.portfolio import execute_trade, get_portfolio
-from app.db.watchlist import add_ticker, get_watchlist, remove_ticker
+from app.db.portfolio import execute_trade
+from app.db.watchlist import add_ticker, remove_ticker
 
-from .schema import LLMResponse, TradeAction, WatchlistAction
-
-load_dotenv(dotenv_path=Path(__file__).parents[3] / ".env")
+from .schema import LLMResponse
 
 MODEL = "openrouter/openai/gpt-oss-120b"
 EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
+MISSING_OPENROUTER_MESSAGE = (
+    "OPENROUTER_API_KEY is required to start FinAlly. "
+    "Copy .env.example to .env and set OPENROUTER_API_KEY."
+)
 
 _conversation_history: list[dict] = []
 
@@ -46,6 +46,8 @@ def call_llm(messages: list[dict]) -> LLMResponse:
             trades=[],
             watchlist_changes=[],
         )
+
+    validate_chat_environment()
 
     response = completion(
         model=MODEL,
@@ -115,3 +117,11 @@ def get_conversation_history(max_messages: int = 20) -> list[dict]:
 
 def append_to_history(role: str, content: str) -> None:
     _conversation_history.append({"role": role, "content": content})
+
+
+def validate_chat_environment() -> None:
+    if os.environ.get("LLM_MOCK", "").lower() == "true":
+        return
+
+    if not os.environ.get("OPENROUTER_API_KEY", "").strip():
+        raise RuntimeError(MISSING_OPENROUTER_MESSAGE)
