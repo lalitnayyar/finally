@@ -37,6 +37,7 @@ body {
 
 body {
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
@@ -54,9 +55,9 @@ main {
 
 .terminal-shell {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
   flex-direction: column;
-  padding: 18px;
+  padding: clamp(8px, 1.4vw, 18px);
   gap: 14px;
 }
 
@@ -164,9 +165,26 @@ main {
 .workspace {
   display: grid;
   flex: 1;
-  grid-template-columns: 290px minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(240px, 290px) minmax(480px, 1fr) minmax(300px, 360px);
   gap: 14px;
   min-height: 0;
+}
+
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 9, 15, 0.82);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  padding: 10px 14px;
+}
+
+.app-footer span {
+  white-space: nowrap;
 }
 
 .watchlist-panel,
@@ -217,6 +235,12 @@ main {
   outline: none;
 }
 
+.trade-strip input[readonly] {
+  color: var(--accent-yellow);
+  background: rgba(236, 173, 10, 0.08);
+  border-color: rgba(236, 173, 10, 0.24);
+}
+
 .watchlist-form input:focus,
 .chat-form input:focus,
 .trade-strip input:focus {
@@ -250,10 +274,23 @@ main {
   cursor: not-allowed;
 }
 
+.buy-button:disabled,
+.sell-button:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+
 .inline-error {
   margin: 0;
   padding: 0 16px 12px;
   color: #ff90a7;
+  font-size: 0.82rem;
+}
+
+.inline-success {
+  margin: 0;
+  padding: 0 16px 12px;
+  color: #7ee0a1;
   font-size: 0.82rem;
 }
 
@@ -328,6 +365,12 @@ main {
   stroke-linejoin: round;
 }
 
+.trading-chart-card {
+  background:
+    linear-gradient(180deg, rgba(17, 25, 36, 0.97), rgba(5, 9, 15, 0.99)),
+    radial-gradient(circle at 24% 0%, rgba(32, 157, 215, 0.18), transparent 32%);
+}
+
 .sparkline-path.flat,
 .main-chart-line.flat {
   stroke: var(--accent-yellow);
@@ -351,7 +394,7 @@ main {
 
 .center-column {
   display: grid;
-  grid-template-rows: minmax(280px, 1.15fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(280px, 1fr);
   gap: 14px;
   min-height: 0;
 }
@@ -378,6 +421,31 @@ main {
   gap: 6px;
 }
 
+.indicator-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.indicator-strip span {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(186, 196, 212, 0.1);
+  border-radius: 8px;
+  background: rgba(4, 8, 14, 0.58);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  padding: 8px 10px;
+}
+
+.indicator-strip strong {
+  color: var(--text-primary);
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-weight: 700;
+}
+
 .chart-price {
   font-size: 1.5rem;
   font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
@@ -400,18 +468,173 @@ main {
 
 .main-chart {
   width: 100%;
-  height: 260px;
+  height: clamp(300px, 42vh, 520px);
+  min-height: 300px;
 }
 
-.main-chart-fill,
-.mini-chart-fill {
-  fill: url(#chart-fill);
+.terminal-chart-bg {
+  fill: url(#terminal-chart-bg);
+}
+
+.chart-grid {
+  stroke: rgba(186, 196, 212, 0.09);
+  stroke-width: 1;
+}
+
+.indicator-divider {
+  stroke: rgba(186, 196, 212, 0.18);
+  stroke-width: 1;
+}
+
+.support-line,
+.resistance-line,
+.cost-basis-line {
+  stroke-width: 1.4;
+  stroke-dasharray: 7 7;
+}
+
+.support-line {
+  stroke: rgba(23, 201, 100, 0.72);
+}
+
+.resistance-line {
+  stroke: rgba(255, 92, 124, 0.72);
+}
+
+.cost-basis-line {
+  stroke: rgba(236, 173, 10, 0.5);
+}
+
+.chart-label,
+.indicator-label,
+.price-axis {
+  fill: var(--text-secondary);
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  font-size: 11px;
+}
+
+.chart-label.support {
+  fill: #7ee0a1;
+}
+
+.chart-label.resistance {
+  fill: #ff90a7;
+}
+
+.price-axis {
+  fill: rgba(237, 243, 251, 0.78);
+}
+
+.candle line {
+  stroke-width: 1.5;
+}
+
+.candle rect {
+  opacity: 0.94;
+}
+
+.candle.up line,
+.candle.up rect {
+  stroke: var(--green);
+  fill: rgba(23, 201, 100, 0.9);
+}
+
+.candle.down line,
+.candle.down rect {
+  stroke: var(--red);
+  fill: rgba(255, 92, 124, 0.9);
+}
+
+.candle.flat line,
+.candle.flat rect {
+  stroke: var(--accent-yellow);
+  fill: rgba(236, 173, 10, 0.82);
+}
+
+.volume-bar {
+  opacity: 0.34;
+}
+
+.price-trend-line,
+.ma-line,
+.rsi-line,
+.macd-line,
+.signal-line,
+.portfolio-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.price-trend-line {
+  stroke-width: 2.4;
   opacity: 0.9;
+}
+
+.price-trend-line.up {
+  stroke: rgba(23, 201, 100, 0.9);
+}
+
+.price-trend-line.down {
+  stroke: rgba(255, 92, 124, 0.9);
+}
+
+.price-trend-line.flat {
+  stroke: rgba(236, 173, 10, 0.9);
+}
+
+.ma-line {
+  stroke-width: 1.5;
+  opacity: 0.86;
+}
+
+.ma20 {
+  stroke: #f4bf4f;
+}
+
+.ma50 {
+  stroke: #209dd7;
+}
+
+.ma200 {
+  stroke: #d57aff;
+}
+
+.rsi-band {
+  stroke: rgba(236, 173, 10, 0.22);
+  stroke-dasharray: 5 5;
+}
+
+.rsi-line {
+  stroke: #f4bf4f;
+  stroke-width: 1.9;
+}
+
+.macd-line {
+  stroke: #209dd7;
+  stroke-width: 1.8;
+}
+
+.signal-line {
+  stroke: #ff8b6b;
+  stroke-width: 1.5;
+}
+
+.portfolio-area {
+  fill: url(#portfolio-fill);
+  opacity: 0.9;
+}
+
+.portfolio-line {
+  stroke: var(--green);
+  stroke-width: 2.6;
 }
 
 .chart-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 8px 14px;
   color: var(--text-secondary);
   font-size: 0.78rem;
 }
@@ -503,16 +726,39 @@ main {
   font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
 }
 
-.mini-chart-shell {
+.portfolio-chart-shell {
   display: flex;
   flex: 1;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
   padding: 14px;
+}
+
+.portfolio-chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+}
+
+.portfolio-chart-header span {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.portfolio-chart-header strong {
+  font-size: 0.76rem;
 }
 
 .mini-chart {
   width: 100%;
   height: 180px;
+}
+
+.drawdown-bar {
+  fill: rgba(255, 92, 124, 0.38);
 }
 
 .positions-table {
@@ -575,12 +821,12 @@ main {
 
 @media (max-width: 1280px) {
   .workspace {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
   }
 
   .chat-panel {
     grid-column: 1 / -1;
-    min-height: 320px;
+    min-height: 260px;
   }
 
   .portfolio-grid {
@@ -589,19 +835,21 @@ main {
 }
 
 @media (max-width: 960px) {
-  .terminal-shell {
-    padding: 12px;
-  }
-
   .app-header,
   .brand-block {
     flex-direction: column;
     align-items: flex-start;
+    width: 100%;
   }
 
-  .header-metrics,
   .workspace {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
   }
 
   .watchlist-panel {
@@ -610,5 +858,67 @@ main {
 
   .center-column {
     grid-template-rows: auto auto auto;
+  }
+
+  .main-chart {
+    height: clamp(280px, 58vh, 420px);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header,
+  .watchlist-panel,
+  .chat-panel,
+  .panel,
+  .trade-strip,
+  .chart-card {
+    border-radius: 8px;
+  }
+
+  .header-metrics,
+  .indicator-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .watchlist-table th,
+  .watchlist-table td,
+  .positions-table th,
+  .positions-table td {
+    padding: 10px 8px;
+  }
+
+  .trade-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+
+  .trade-label-group,
+  .trade-strip > input,
+  .buy-button,
+  .sell-button {
+    width: 100%;
+  }
+
+  .trade-label-group {
+    grid-column: 1 / -1;
+  }
+
+  .trade-label-group input {
+    flex: 1;
+  }
+
+  .inline-error,
+  .inline-success {
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+
+  .app-footer {
+    justify-content: flex-start;
+  }
+
+  .app-footer span {
+    white-space: normal;
   }
 }

@@ -88,6 +88,28 @@ async def test_chat_error_handling(client, monkeypatch):
     assert data["watchlist_changes"] == []
 
 
+@pytest.mark.asyncio
+async def test_chat_times_out_slow_llm_without_hanging(client, monkeypatch):
+    from app.llm import router as router_module
+
+    def slow_llm(messages):
+        import time
+
+        from app.llm.schema import LLMResponse
+
+        time.sleep(0.2)
+        return LLMResponse(message="Too late", trades=[], watchlist_changes=[])
+
+    monkeypatch.setattr(router_module, "CHAT_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(router_module, "call_llm", slow_llm)
+
+    resp = await client.post("/api/chat", json={"message": "test"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "trouble connecting" in data["message"]
+    assert data["execution_results"] == []
+
+
 def test_call_llm_requires_openrouter_api_key(monkeypatch):
     from app.llm import chat as chat_module
 
@@ -105,3 +127,58 @@ def test_validate_chat_environment_allows_mock_mode(monkeypatch):
     monkeypatch.setenv("LLM_MOCK", "true")
 
     chat_module.validate_chat_environment()
+
+
+@pytest.mark.asyncio
+async def test_chat_watchlist_add_subscribes_market_source(client, monkeypatch):
+    from app.llm import router as router_module
+    from app.llm.schema import LLMResponse, WatchlistAction
+    from app.main import app
+
+    def add_pypl(messages):
+        return LLMResponse(
+            message="Added PYPL.",
+            trades=[],
+            watchlist_changes=[WatchlistAction(ticker="PYPL", action="add")],
+        )
+
+    monkeypatch.setattr(router_module, "call_llm", add_pypl)
+
+    resp = await client.post("/api/chat", json={"message": "Add PYPL to my watchlist"})
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert {"ticker": "PYPL", "action": "add"} in data["watchlist_changes"]
+    assert "Added PYPL to watchlist" in data["execution_results"]
+    assert "PYPL" in app.state.source.get_tickers()
+    assert app.state.cache.get_price("PYPL") is not None
+
+
+@pytest.mark.asyncio
+async def test_chat_watchlist_remove_unsubscribes_market_source(client, monkeypatch):
+    from app.llm import router as router_module
+    from app.llm.schema import LLMResponse, WatchlistAction
+    from app.main import app
+
+    add_resp = await client.post("/api/watchlist", json={"ticker": "PYPL"})
+    assert add_resp.status_code == 200
+    assert "PYPL" in app.state.source.get_tickers()
+    assert app.state.cache.get_price("PYPL") is not None
+
+    def remove_pypl(messages):
+        return LLMResponse(
+            message="Removed PYPL.",
+            trades=[],
+            watchlist_changes=[WatchlistAction(ticker="PYPL", action="remove")],
+        )
+
+    monkeypatch.setattr(router_module, "call_llm", remove_pypl)
+
+    resp = await client.post("/api/chat", json={"message": "Remove PYPL from my watchlist"})
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert {"ticker": "PYPL", "action": "remove"} in data["watchlist_changes"]
+    assert "Removed PYPL from watchlist" in data["execution_results"]
+    assert "PYPL" not in app.state.source.get_tickers()
+    assert app.state.cache.get_price("PYPL") is None

@@ -3,10 +3,10 @@ import re
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-_VALID_TICKER = re.compile(r"^[A-Z]{1,5}$")
-
 from app.db import get_db
 from app.db.watchlist import add_ticker, get_watchlist, remove_ticker
+
+_VALID_TICKER = re.compile(r"^[A-Z]{1,5}$")
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
@@ -26,13 +26,15 @@ async def list_watchlist(request: Request):
     result = []
     for ticker in tickers:
         update = cache.get(ticker)
-        result.append({
-            "ticker": ticker,
-            "price": update.price if update else None,
-            "change": update.change if update else None,
-            "change_percent": update.change_percent if update else None,
-            "direction": update.direction if update else "flat",
-        })
+        result.append(
+            {
+                "ticker": ticker,
+                "price": update.price if update else None,
+                "change": update.change if update else None,
+                "change_percent": update.change_percent if update else None,
+                "direction": update.direction if update else "flat",
+            }
+        )
     return result
 
 

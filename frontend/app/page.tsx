@@ -53,6 +53,23 @@ type ChatMessage = {
   content: string;
 };
 
+type TradeResponse = {
+  ticker: string;
+  side: 'buy' | 'sell';
+  quantity: number;
+  price: number;
+  cash_balance: number;
+};
+
+type Candle = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  direction: 'up' | 'down' | 'flat';
+};
+
 const EMPTY_PORTFOLIO: PortfolioResponse = {
   cash_balance: 0,
   total_value: 0,
@@ -62,6 +79,8 @@ const EMPTY_PORTFOLIO: PortfolioResponse = {
 
 const DEFAULT_CHART_MESSAGE =
   'Select a symbol from the watchlist to inspect its recent price history.';
+const VALID_TICKER = /^[A-Z]{1,5}$/;
+const FETCH_TIMEOUT_MS = 15000;
 
 function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -108,6 +127,139 @@ function buildLinePath(values: number[], width: number, height: number): string 
     .join(' ');
 }
 
+function buildScaledPath(
+  values: number[],
+  width: number,
+  height: number,
+  top = 0,
+  left = 0,
+): string {
+  if (!values.length) {
+    return '';
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  return values
+    .map((value, index) => {
+      const x = left + (values.length === 1 ? width / 2 : (index / (values.length - 1)) * width);
+      const y = top + height - ((value - min) / range) * height;
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(' ');
+}
+
+function movingAverage(values: number[], period: number): Array<number | null> {
+  return values.map((_, index) => {
+    if (index + 1 < period) {
+      return null;
+    }
+
+    const window = values.slice(index + 1 - period, index + 1);
+    return window.reduce((sum, value) => sum + value, 0) / period;
+  });
+}
+
+function buildNullablePath(
+  values: Array<number | null>,
+  width: number,
+  height: number,
+  min: number,
+  max: number,
+  top = 0,
+  left = 0,
+): string {
+  const range = max - min || 1;
+  let started = false;
+
+  return values
+    .map((value, index) => {
+      if (value === null) {
+        return '';
+      }
+
+      const x = left + (values.length === 1 ? width / 2 : (index / (values.length - 1)) * width);
+      const y = top + height - ((value - min) / range) * height;
+      const command = started ? 'L' : 'M';
+      started = true;
+      return `${command} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
+function buildCandles(points: PricePoint[]): Candle[] {
+  return points.slice(-48).map((point, index, selected) => {
+    const previous = selected[index - 1];
+    const open = previous?.price ?? point.previous_price ?? point.price;
+    const close = point.price;
+    const move = Math.abs(close - open);
+    const wick = Math.max(move * 0.72, close * 0.0012);
+    const high = Math.max(open, close) + wick * (1 + (index % 3) * 0.12);
+    const low = Math.max(0, Math.min(open, close) - wick * (1 + (index % 4) * 0.1));
+    const volume = Math.round(420000 + Math.abs(point.change_percent) * 240000 + (index % 9) * 38000);
+    const direction = close > open ? 'up' : close < open ? 'down' : 'flat';
+
+    return { open, high, low, close, volume, direction };
+  });
+}
+
+function ema(values: number[], period: number): number[] {
+  if (!values.length) {
+    return [];
+  }
+
+  const multiplier = 2 / (period + 1);
+  const result = [values[0]];
+
+  for (let index = 1; index < values.length; index += 1) {
+    result.push((values[index] - result[index - 1]) * multiplier + result[index - 1]);
+  }
+
+  return result;
+}
+
+function rsi(values: number[], period = 14): number[] {
+  if (values.length < 2) {
+    return values.map(() => 50);
+  }
+
+  return values.map((_, index) => {
+    if (index === 0) {
+      return 50;
+    }
+
+    const start = Math.max(1, index - period + 1);
+    let gains = 0;
+    let losses = 0;
+
+    for (let cursor = start; cursor <= index; cursor += 1) {
+      const delta = values[cursor] - values[cursor - 1];
+      if (delta >= 0) {
+        gains += delta;
+      } else {
+        losses += Math.abs(delta);
+      }
+    }
+
+    if (losses === 0) {
+      return 100;
+    }
+
+    const relativeStrength = gains / losses;
+    return 100 - 100 / (1 + relativeStrength);
+  });
+}
+
+function formatCompact(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function Sparkline({
   values,
   direction,
@@ -138,10 +290,34 @@ function MainChart({ ticker, points }: { ticker: string; points: PricePoint[] })
   }
 
   const latest = points[points.length - 1];
-  const values = points.map((point) => point.price);
+  const candles = buildCandles(points);
+  const closes = candles.map((candle) => candle.close);
+  const highs = candles.map((candle) => candle.high);
+  const lows = candles.map((candle) => candle.low);
+  const volumes = candles.map((candle) => candle.volume);
+  const priceMin = Math.min(...lows);
+  const priceMax = Math.max(...highs);
+  const priceRange = priceMax - priceMin || 1;
+  const support = priceMin + priceRange * 0.18;
+  const resistance = priceMax - priceRange * 0.16;
+  const ma20 = movingAverage(closes, Math.min(20, closes.length));
+  const ma50 = movingAverage(closes, Math.min(32, closes.length));
+  const ma200 = movingAverage(closes, Math.min(44, closes.length));
+  const rsiValues = rsi(closes);
+  const macdFast = ema(closes, 12);
+  const macdSlow = ema(closes, 26);
+  const macdLine = macdFast.map((value, index) => value - (macdSlow[index] ?? value));
+  const signalLine = ema(macdLine, 9);
+  const macdMin = Math.min(...macdLine, ...signalLine);
+  const macdMax = Math.max(...macdLine, ...signalLine);
+  const candleWidth = Math.max(6, 680 / candles.length - 4);
+  const maxVolume = Math.max(...volumes, 1);
+  const priceY = (value: number) => 34 + 276 - ((value - priceMin) / priceRange) * 276;
+  const volumeY = (value: number) => 338 + 70 - (value / maxVolume) * 70;
+  const xFor = (index: number) => 42 + (index / Math.max(candles.length - 1, 1)) * 680;
 
   return (
-    <div className="chart-card">
+    <div className="chart-card trading-chart-card">
       <div className="chart-card-header">
         <div>
           <p className="eyebrow">Primary Chart</p>
@@ -154,22 +330,134 @@ function MainChart({ ticker, points }: { ticker: string; points: PricePoint[] })
           </span>
         </div>
       </div>
-      <svg viewBox="0 0 100 40" className="main-chart" preserveAspectRatio="none">
+      <div className="indicator-strip" aria-label="Technical indicators">
+        <span>
+          MA20 <strong>{formatCurrency(ma20[ma20.length - 1] ?? latest.price)}</strong>
+        </span>
+        <span>
+          MA50 <strong>{formatCurrency(ma50[ma50.length - 1] ?? latest.price)}</strong>
+        </span>
+        <span>
+          MA200 <strong>{formatCurrency(ma200[ma200.length - 1] ?? latest.price)}</strong>
+        </span>
+        <span>
+          Vol <strong>{formatCompact(volumes[volumes.length - 1])}</strong>
+        </span>
+      </div>
+      <svg
+        viewBox="0 0 760 520"
+        className="main-chart"
+        data-testid="primary-trading-chart"
+        preserveAspectRatio="none"
+      >
         <defs>
-          <linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(236, 173, 10, 0.42)" />
-            <stop offset="100%" stopColor="rgba(236, 173, 10, 0.04)" />
+          <linearGradient id="terminal-chart-bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(32, 157, 215, 0.12)" />
+            <stop offset="100%" stopColor="rgba(4, 8, 14, 0)" />
           </linearGradient>
         </defs>
-        <path
-          d={`${buildLinePath(values, 100, 34)} L 100 40 L 0 40 Z`}
-          className="main-chart-fill"
+        <rect x="0" y="0" width="760" height="520" className="terminal-chart-bg" />
+        {[34, 89, 144, 199, 254, 310].map((y) => (
+          <line key={`price-grid-${y}`} x1="36" x2="724" y1={y} y2={y} className="chart-grid" />
+        ))}
+        {[80, 180, 280, 380, 480, 580, 680].map((x) => (
+          <line key={`vertical-grid-${x}`} x1={x} x2={x} y1="34" y2="512" className="chart-grid" />
+        ))}
+        <line
+          x1="42"
+          x2="722"
+          y1={priceY(resistance)}
+          y2={priceY(resistance)}
+          className="resistance-line"
         />
-        <path d={buildLinePath(values, 100, 34)} className={`main-chart-line ${latest.direction}`} />
+        <line x1="42" x2="722" y1={priceY(support)} y2={priceY(support)} className="support-line" />
+        <text x="54" y={priceY(resistance) - 8} className="chart-label resistance">
+          Resistance {formatCurrency(resistance)}
+        </text>
+        <text x="54" y={priceY(support) + 16} className="chart-label support">
+          Support {formatCurrency(support)}
+        </text>
+        <path
+          d={buildNullablePath(ma20, 680, 276, priceMin, priceMax, 34, 42)}
+          className="ma-line ma20"
+        />
+        <path
+          d={buildNullablePath(ma50, 680, 276, priceMin, priceMax, 34, 42)}
+          className="ma-line ma50"
+        />
+        <path
+          d={buildNullablePath(ma200, 680, 276, priceMin, priceMax, 34, 42)}
+          className="ma-line ma200"
+        />
+        <path
+          d={buildNullablePath(closes, 680, 276, priceMin, priceMax, 34, 42)}
+          className={`price-trend-line ${latest.direction}`}
+        />
+        {candles.map((candle, index) => {
+          const x = xFor(index);
+          const openY = priceY(candle.open);
+          const closeY = priceY(candle.close);
+          const bodyY = Math.min(openY, closeY);
+          const bodyHeight = Math.max(Math.abs(closeY - openY), 3);
+          return (
+            <g key={`${ticker}-${index}`} className={`candle ${candle.direction}`}>
+              <line x1={x} x2={x} y1={priceY(candle.high)} y2={priceY(candle.low)} />
+              <rect
+                x={x - candleWidth / 2}
+                y={bodyY}
+                width={candleWidth}
+                height={bodyHeight}
+                rx="1.5"
+              />
+              <rect
+                x={x - candleWidth / 2}
+                y={volumeY(candle.volume)}
+                width={candleWidth}
+                height={408 - volumeY(candle.volume)}
+                className="volume-bar"
+                rx="1.5"
+              />
+            </g>
+          );
+        })}
+        <text x="42" y="332" className="indicator-label">
+          Volume
+        </text>
+        <line x1="36" x2="724" y1="408" y2="408" className="indicator-divider" />
+        <text x="42" y="430" className="indicator-label">
+          RSI 14
+        </text>
+        <line x1="42" x2="722" y1="448" y2="448" className="rsi-band" />
+        <line x1="42" x2="722" y1="480" y2="480" className="rsi-band" />
+        <path
+          d={buildScaledPath(rsiValues, 680, 60, 430, 42)}
+          className="rsi-line"
+        />
+        <line x1="36" x2="724" y1="492" y2="492" className="indicator-divider" />
+        <text x="42" y="512" className="indicator-label">
+          MACD
+        </text>
+        <path
+          d={buildScaledPath(macdLine, 680, 42, 472, 42)}
+          className="macd-line"
+        />
+        <path
+          d={buildScaledPath(signalLine, 680, 42, 472, 42)}
+          className="signal-line"
+        />
+        <text x="656" y="52" className="price-axis">
+          {formatCurrency(priceMax)}
+        </text>
+        <text x="656" y="306" className="price-axis">
+          {formatCurrency(priceMin)}
+        </text>
+        <text x="656" y="512" className="price-axis">
+          {macdMin.toFixed(2)} / {macdMax.toFixed(2)}
+        </text>
       </svg>
       <div className="chart-footer">
-        <span>{points.length} points cached</span>
-        <span>Updates stream live via SSE</span>
+        <span>OHLC rebuilt from {points.length} live ticks</span>
+        <span>RSI, MACD, volume, support and resistance</span>
       </div>
     </div>
   );
@@ -182,11 +470,71 @@ function PortfolioValueChart({ history }: { history: PortfolioHistoryPoint[] }) 
     return <div className="empty-state">No portfolio snapshots yet</div>;
   }
 
+  const latest = values[values.length - 1];
+  const first = values[0];
+  const change = latest - first;
+  const changePercent = first ? (change / first) * 100 : 0;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const highWater = values.reduce<number[]>((levels, value, index) => {
+    levels[index] = Math.max(value, levels[index - 1] ?? value);
+    return levels;
+  }, []);
+  const drawdowns = values.map((value, index) => highWater[index] - value);
+  const maxDrawdown = Math.max(...drawdowns, 1);
+  const yFor = (value: number) => 14 + 104 - ((value - min) / range) * 104;
+
   return (
-    <div className="mini-chart-shell">
-      <svg viewBox="0 0 100 44" className="mini-chart" preserveAspectRatio="none">
-        <path d={`${buildLinePath(values, 100, 38)} L 100 44 L 0 44 Z`} className="mini-chart-fill" />
-        <path d={buildLinePath(values, 100, 38)} className="mini-chart-line" />
+    <div className="portfolio-chart-shell">
+      <div className="portfolio-chart-header">
+        <span>{formatCurrency(latest)}</span>
+        <strong className={change >= 0 ? 'up' : 'down'}>
+          {formatSignedCurrency(change)} / {formatSignedPercent(changePercent)}
+        </strong>
+      </div>
+      <svg
+        viewBox="0 0 320 190"
+        className="mini-chart"
+        data-testid="portfolio-value-chart"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="portfolio-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(23, 201, 100, 0.34)" />
+            <stop offset="100%" stopColor="rgba(23, 201, 100, 0.02)" />
+          </linearGradient>
+        </defs>
+        {[14, 40, 66, 92, 118].map((y) => (
+          <line key={`portfolio-grid-${y}`} x1="0" x2="320" y1={y} y2={y} className="chart-grid" />
+        ))}
+        <path
+          d={`${buildScaledPath(values, 320, 104, 14)} L 320 128 L 0 128 Z`}
+          className="portfolio-area"
+        />
+        <path d={buildScaledPath(values, 320, 104, 14)} className="portfolio-line" />
+        <line x1="0" x2="320" y1={yFor(first)} y2={yFor(first)} className="cost-basis-line" />
+        {drawdowns.map((drawdown, index) => {
+          const x = values.length === 1 ? 160 : (index / (values.length - 1)) * 320;
+          const height = (drawdown / maxDrawdown) * 38;
+          return (
+            <rect
+              key={`drawdown-${index}`}
+              x={x - 2}
+              y={172 - height}
+              width="4"
+              height={height}
+              className="drawdown-bar"
+              rx="1"
+            />
+          );
+        })}
+        <text x="8" y="24" className="chart-label">
+          High {formatCurrency(max)}
+        </text>
+        <text x="8" y="182" className="indicator-label">
+          Drawdown
+        </text>
       </svg>
     </div>
   );
@@ -230,10 +578,11 @@ export default function HomePage() {
   const [selectedTicker, setSelectedTicker] = useState('AAPL');
   const [priceHistory, setPriceHistory] = useState<Record<string, PricePoint[]>>({});
   const [watchlistInput, setWatchlistInput] = useState('');
-  const [tradeTicker, setTradeTicker] = useState('AAPL');
   const [tradeQuantity, setTradeQuantity] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [tradeError, setTradeError] = useState('');
+  const [tradeNotice, setTradeNotice] = useState('');
+  const [tradeBusy, setTradeBusy] = useState(false);
   const [watchlistError, setWatchlistError] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -244,20 +593,32 @@ export default function HomePage() {
   ]);
 
   async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(url, init);
-    const body = await response.json();
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    if (!response.ok) {
-      const detail =
-        typeof body?.detail === 'string'
-          ? body.detail
-          : typeof body?.message === 'string'
-            ? body.message
-            : 'Request failed';
-      throw new Error(detail);
+    try {
+      const response = await fetch(url, { cache: 'no-store', ...init, signal: controller.signal });
+      const body = await response.json();
+
+      if (!response.ok) {
+        const detail =
+          typeof body?.detail === 'string'
+            ? body.detail
+            : typeof body?.message === 'string'
+              ? body.message
+              : 'Request failed';
+        throw new Error(detail);
+      }
+
+      return body as T;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Request timed out. Please try again.');
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
     }
-
-    return body as T;
   }
 
   async function refreshPortfolio(): Promise<void> {
@@ -277,9 +638,6 @@ export default function HomePage() {
     if (rows.length && !rows.some((row) => row.ticker === selectedTicker)) {
       setSelectedTicker(rows[0].ticker);
     }
-    if (rows.length && !rows.some((row) => row.ticker === tradeTicker)) {
-      setTradeTicker(rows[0].ticker);
-    }
   }
 
   async function loadTickerHistory(ticker: string): Promise<void> {
@@ -288,6 +646,15 @@ export default function HomePage() {
       ...current,
       [ticker]: history,
     }));
+  }
+
+  function selectTicker(ticker: string): void {
+    setSelectedTicker(ticker);
+    setTradeError('');
+    setTradeNotice('');
+    loadTickerHistory(ticker).catch(() => {
+      setPriceHistory((current) => ({ ...current, [ticker]: [] }));
+    });
   }
 
   useEffect(() => {
@@ -386,7 +753,7 @@ export default function HomePage() {
 
       setWatchlistInput('');
       await refreshWatchlist();
-      await loadTickerHistory(ticker);
+      selectTicker(ticker);
     } catch (error) {
       setWatchlistError(error instanceof Error ? error.message : 'Unable to add ticker');
     }
@@ -405,22 +772,42 @@ export default function HomePage() {
 
   async function handleTrade(side: 'buy' | 'sell'): Promise<void> {
     setTradeError('');
+    setTradeNotice('');
+
+    if (tradeBusy) {
+      return;
+    }
 
     try {
-      const ticker = tradeTicker.toUpperCase().trim();
+      const ticker = selectedTicker.toUpperCase().trim();
       const quantity = Number.parseFloat(tradeQuantity);
 
-      await fetchJson('/api/portfolio/trade', {
+      if (!VALID_TICKER.test(ticker)) {
+        throw new Error('Select a valid ticker before trading');
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error('Enter a positive quantity before trading');
+      }
+
+      setTradeBusy(true);
+      const result = await fetchJson<TradeResponse>('/api/portfolio/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker, side, quantity }),
       });
 
       setTradeQuantity('');
-      await refreshPortfolio();
-      await refreshWatchlist();
+      setTradeNotice(
+        `${result.side.toUpperCase()} ${result.quantity} ${result.ticker} @ ${formatCurrency(
+          result.price,
+        )}`,
+      );
+      setTradeBusy(false);
+      await Promise.allSettled([refreshPortfolio(), refreshWatchlist(), loadTickerHistory(ticker)]);
     } catch (error) {
       setTradeError(error instanceof Error ? error.message : 'Unable to execute trade');
+    } finally {
+      setTradeBusy(false);
     }
   }
 
@@ -452,7 +839,8 @@ export default function HomePage() {
         { role: 'assistant', content: `${response.message}${executionText}`.trim() },
       ]);
 
-      await Promise.all([refreshPortfolio(), refreshWatchlist()]);
+      setChatBusy(false);
+      void Promise.allSettled([refreshPortfolio(), refreshWatchlist()]);
     } catch (error) {
       setMessages((current) => [
         ...current,
@@ -484,11 +872,11 @@ export default function HomePage() {
         <div className="header-metrics">
           <div className="metric-card">
             <span className="metric-label">Portfolio</span>
-            <strong>{formatCurrency(portfolio.total_value)}</strong>
+            <strong data-testid="portfolio-total">{formatCurrency(portfolio.total_value)}</strong>
           </div>
           <div className="metric-card">
             <span className="metric-label">Cash</span>
-            <strong>{formatCurrency(portfolio.cash_balance)}</strong>
+            <strong data-testid="portfolio-cash">{formatCurrency(portfolio.cash_balance)}</strong>
           </div>
           <div className="metric-card">
             <span className="metric-label">Unrealized P&amp;L</span>
@@ -538,8 +926,7 @@ export default function HomePage() {
                       key={row.ticker}
                       className={selectedTicker === row.ticker ? 'active' : ''}
                       onClick={() => {
-                        setSelectedTicker(row.ticker);
-                        setTradeTicker(row.ticker);
+                        selectTicker(row.ticker);
                       }}
                     >
                       <td>
@@ -580,8 +967,9 @@ export default function HomePage() {
               <input
                 type="text"
                 name="trade-symbol"
-                value={tradeTicker}
-                onChange={(event) => setTradeTicker(event.target.value.toUpperCase())}
+                value={selectedTicker}
+                readOnly
+                aria-label="Selected trade symbol"
                 maxLength={5}
               />
             </div>
@@ -593,13 +981,24 @@ export default function HomePage() {
               value={tradeQuantity}
               onChange={(event) => setTradeQuantity(event.target.value)}
             />
-            <button type="button" className="buy-button" onClick={() => handleTrade('buy')}>
-              Buy
+            <button
+              type="button"
+              className="buy-button"
+              onClick={() => handleTrade('buy')}
+              disabled={tradeBusy}
+            >
+              {tradeBusy ? 'Working' : 'Buy'}
             </button>
-            <button type="button" className="sell-button" onClick={() => handleTrade('sell')}>
-              Sell
+            <button
+              type="button"
+              className="sell-button"
+              onClick={() => handleTrade('sell')}
+              disabled={tradeBusy}
+            >
+              {tradeBusy ? 'Working' : 'Sell'}
             </button>
             {tradeError ? <p className="inline-error">{tradeError}</p> : null}
+            {tradeNotice ? <p className="inline-success">{tradeNotice}</p> : null}
           </section>
 
           <section className="portfolio-grid">
@@ -670,16 +1069,22 @@ export default function HomePage() {
             <input
               type="text"
               name="finally-chat-message"
+              data-testid="chat-input"
               placeholder="Type a message for the assistant..."
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
             />
-            <button type="submit" disabled={chatBusy || !chatInput.trim()}>
+            <button type="submit" data-testid="chat-send" disabled={chatBusy || !chatInput.trim()}>
               {chatBusy ? 'Sending' : 'Send'}
             </button>
           </form>
         </aside>
       </div>
+      <footer className="app-footer">
+        <span>Educational application by Lalit Nayyar</span>
+        <span>lalitnayyar@gmail.com</span>
+        <span>For learning and demonstration only. Not financial advice or commercial use.</span>
+      </footer>
     </main>
   );
 }

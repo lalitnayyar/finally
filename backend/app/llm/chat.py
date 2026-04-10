@@ -26,10 +26,10 @@ You help users analyze their portfolio, suggest trades, execute trades, and mana
 Be concise and data-driven. Always respond with valid structured JSON.
 
 Current Portfolio Context:
-- Cash Balance: ${portfolio_context['cash_balance']:,.2f}
-- Total Portfolio Value: ${portfolio_context['total_value']:,.2f}
-- Positions: {json.dumps(portfolio_context['positions'], indent=2)}
-- Watchlist (with live prices): {json.dumps(portfolio_context['watchlist'], indent=2)}
+- Cash Balance: ${portfolio_context["cash_balance"]:,.2f}
+- Total Portfolio Value: ${portfolio_context["total_value"]:,.2f}
+- Positions: {json.dumps(portfolio_context["positions"], indent=2)}
+- Watchlist (with live prices): {json.dumps(portfolio_context["watchlist"], indent=2)}
 
 You can execute trades and manage the watchlist by including them in your response.
 For trades, specify ticker, side ("buy" or "sell"), and quantity.
@@ -54,6 +54,7 @@ def call_llm(messages: list[dict]) -> LLMResponse:
         messages=messages,
         response_format=LLMResponse,
         extra_body=EXTRA_BODY,
+        timeout=20,
     )
     raw = response.choices[0].message.content
     # Strip thinking tokens and markdown code fences if present
@@ -69,7 +70,7 @@ def _is_valid_ticker(ticker: str) -> bool:
     return bool(_VALID_TICKER.match(ticker.upper()))
 
 
-async def execute_llm_actions(response: LLMResponse, db_conn, cache) -> list[str]:
+async def execute_llm_actions(response: LLMResponse, db_conn, cache, source) -> list[str]:
     results = []
 
     for trade in response.trades:
@@ -99,11 +100,15 @@ async def execute_llm_actions(response: LLMResponse, db_conn, cache) -> list[str
             continue  # skip hallucinated tickers
         if change.action == "add":
             added = await add_ticker(db_conn, ticker)
+            if added:
+                await source.add_ticker(ticker)
             results.append(
                 f"Added {ticker} to watchlist" if added else f"{ticker} already in watchlist"
             )
         elif change.action == "remove":
             removed = await remove_ticker(db_conn, ticker)
+            if removed:
+                await source.remove_ticker(ticker)
             results.append(
                 f"Removed {ticker} from watchlist" if removed else f"{ticker} not in watchlist"
             )

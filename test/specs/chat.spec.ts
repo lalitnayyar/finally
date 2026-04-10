@@ -26,9 +26,7 @@ test.describe('AI Chat (LLM_MOCK=true)', () => {
     await chatInput.fill('How is my portfolio doing?');
 
     // Submit — press Enter or click send button
-    const sendButton = page.getByRole('button', { name: /send|submit/i }).or(
-      page.locator('[data-testid="chat-send"]')
-    );
+    const sendButton = page.getByTestId('chat-send');
 
     if (await sendButton.isVisible()) {
       await sendButton.click();
@@ -40,6 +38,8 @@ test.describe('AI Chat (LLM_MOCK=true)', () => {
     await expect(
       page.getByText(/mock response|portfolio looks great/i).first()
     ).toBeVisible({ timeout: 15000 });
+    await expect(sendButton).toHaveText('Send');
+    await expect(sendButton).toBeDisabled();
   });
 
   test('no JavaScript errors in console during chat', async ({ page }) => {
