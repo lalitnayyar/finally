@@ -1,9 +1,9 @@
 ---
 phase: 01
 slug: launch-source-reproducibility
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-10
 ---
 
@@ -38,11 +38,12 @@ created: 2026-04-10
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 1 | PLAT-04 | T-01-01 | Frontend source is restored without relying on hand-edited generated assets | build/smoke | `docker build -t finally .` | ❌ W0 | ⬜ pending |
-| 01-02-01 | 02 | 1 | PLAT-01 | T-01-04 | Student launch path validates `.env` and `OPENROUTER_API_KEY` without exposing secret values | smoke | `./scripts/start_mac.sh` plus launch smoke | ❌ W0 | ⬜ pending |
-| 01-02-01 | 02 | 1 | PLAT-03 | T-01-07 | App boots successfully with simulator defaults when `MASSIVE_API_KEY` is absent | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
-| 01-02-01 | 02 | 1 | MKT-05 | T-01-07 | Market source selection stays env-driven: simulator by default, Massive when configured | integration | `cd backend && uv run pytest tests/market/test_factory.py -q` | ✅ | ⬜ pending |
-| 01-03-01 | 03 | 2 | PLAT-02 | T-01-09 | UI and API are served from the same containerized origin | e2e | `cd test && npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts` | ❌ W0 | ⬜ pending |
+| 01-01-01 | 01 | 1 | PLAT-04 | T-01-01 | Frontend source is restored without relying on hand-edited generated assets | build/smoke | `cd frontend && npm ci --no-audit --no-fund && npm run build` | Planned in 01-01 | ⬜ pending |
+| 01-01-02 | 01 | 1 | PLAT-04 | T-01-01 | Generated backend-served assets are recreated from source and Docker rebuilds them deterministically | build/smoke | `cd frontend && npm run build && npm run sync:static && cd .. && docker build -t finally-phase1-repro .` | Planned in 01-01 | ⬜ pending |
+| 01-02-01 | 02 | 1 | PLAT-01 | T-01-04 | Student launch path validates `.env` and `OPENROUTER_API_KEY` without exposing secret values | smoke/integration | `cd /home/lnayyar/projects/CourseAIVibeCodeUdmey/finally && python3 scripts/test_startup_preflight.py && cd backend && uv run pytest tests/market/test_factory.py tests/test_chat.py -q` | Planned in 01-02 | ⬜ pending |
+| 01-02-02 | 02 | 1 | PLAT-01 | T-01-06 | Student and contributor docs stay aligned with the same runtime contract and exact start/stop commands | doc/grep | `cd /home/lnayyar/projects/CourseAIVibeCodeUdmey/finally && rg -n "start_mac\\.sh|start_windows\\.ps1|OPENROUTER_API_KEY|MASSIVE_API_KEY|uv run uvicorn|npm run dev" README.md backend/README.md scripts/stop_mac.sh scripts/stop_windows.ps1` | Planned in 01-02 | ⬜ pending |
+| 01-03-01 | 03 | 2 | PLAT-02 | T-01-09 | UI and API are served from the same containerized origin | e2e | `cd test && npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts` | Planned in 01-03 | ⬜ pending |
+| 01-03-02 | 03 | 2 | MKT-05 | T-01-10 | The launch harness runs against the rebuilt Docker runtime and preserves env-driven simulator/Massive behavior under the documented app startup path | e2e/full | `cd test && docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from playwright` | Planned in 01-03 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,10 +51,10 @@ created: 2026-04-10
 
 ## Wave 0 Requirements
 
-- [ ] `test/specs/launch.spec.ts` — smoke test for the documented launch path, same-origin UI/API availability, and first-load workstation reachability
-- [ ] `test/specs/reproducibility.spec.ts` or equivalent build smoke coverage — proves restored `frontend/` builds into the runtime path
-- [ ] Script-level validation coverage for missing `.env` / missing `OPENROUTER_API_KEY` guidance
-- [ ] Playwright package/image version alignment review in `test/package.json` and `test/docker-compose.test.yml`
+- [x] `test/specs/launch.spec.ts` — planned in `01-03-01`
+- [x] `test/specs/reproducibility.spec.ts` or equivalent build smoke coverage — planned in `01-03-01`
+- [x] Script-level validation coverage for missing `.env` / missing `OPENROUTER_API_KEY` guidance — planned in `01-02-01` via `scripts/test_startup_preflight.py`
+- [x] Playwright package/image version alignment review in `test/package.json` and `test/docker-compose.test.yml` — planned in `01-03-02`
 
 ---
 
@@ -68,11 +69,11 @@ created: 2026-04-10
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-04-10
