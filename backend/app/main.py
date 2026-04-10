@@ -9,10 +9,15 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db import get_db, init_db
 from app.db.watchlist import get_watchlist
-from app.llm.chat import validate_chat_environment
-from app.market import PriceCache, create_market_data_source, create_prices_router, create_stream_router
-from app.market.seed_prices import SEED_PRICES
 from app.llm import chat_router
+from app.llm.chat import validate_chat_environment
+from app.market import (
+    PriceCache,
+    create_market_data_source,
+    create_prices_router,
+    create_stream_router,
+)
+from app.market.seed_prices import SEED_PRICES
 from app.routes.health import router as health_router
 from app.routes.portfolio import router as portfolio_router
 from app.routes.watchlist import router as watchlist_router

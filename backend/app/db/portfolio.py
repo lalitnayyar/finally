@@ -54,16 +54,12 @@ async def execute_trade(conn, ticker: str, side: str, quantity: float, price: fl
             )
 
     elif side == "sell":
-        cursor = await conn.execute(
-            "SELECT quantity FROM positions WHERE ticker = ?", (ticker,)
-        )
+        cursor = await conn.execute("SELECT quantity FROM positions WHERE ticker = ?", (ticker,))
         existing = await cursor.fetchone()
 
         if not existing or existing["quantity"] < quantity:
             owned = existing["quantity"] if existing else 0
-            raise ValueError(
-                f"Insufficient shares: want to sell {quantity}, own {owned}"
-            )
+            raise ValueError(f"Insufficient shares: want to sell {quantity}, own {owned}")
 
         new_qty = existing["quantity"] - quantity
         new_cash = cash_balance + quantity * price
@@ -87,9 +83,6 @@ async def execute_trade(conn, ticker: str, side: str, quantity: float, price: fl
         (str(uuid.uuid4()), ticker, side, quantity, price, now),
     )
 
-    # Calculate total portfolio value for snapshot
-    cursor = await conn.execute("SELECT ticker, quantity FROM positions")
-    positions = await cursor.fetchall()
     # For snapshot, use current trade price for the traded ticker;
     # other positions' values require external prices, but we only have the trade price here.
     # The API layer should provide a proper snapshot with live prices.

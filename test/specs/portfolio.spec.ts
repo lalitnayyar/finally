@@ -1,4 +1,29 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+type Position = {
+  ticker: string;
+  quantity: number;
+};
+
+type PortfolioResponse = {
+  cash_balance: number;
+  positions: Position[];
+};
+
+async function getPortfolio(page: Page) {
+  const response = await page.request.get('/api/portfolio');
+  expect(response.ok()).toBeTruthy();
+  return (await response.json()) as PortfolioResponse;
+}
+
+function formatCash(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 test.describe('Portfolio', () => {
   test('portfolio and cash balance are displayed', async ({ page }) => {
@@ -17,20 +42,23 @@ test.describe('Portfolio', () => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 
-    // Wait for prices to be available via SSE
+    await page.waitForSelector('[data-testid="watchlist-table"] tbody tr', { timeout: 10000 });
     await page.waitForTimeout(3000);
 
     // Get portfolio state before the trade
-    const beforeResponse = await page.request.get('/api/portfolio');
-    const beforePortfolio = await beforeResponse.json();
+    const beforePortfolio = await getPortfolio(page);
     const cashBefore = beforePortfolio.cash_balance;
-    const aaplBefore = beforePortfolio.positions.find(
-      (p: { ticker: string }) => p.ticker === 'AAPL'
-    );
-    const qtyBefore = aaplBefore ? aaplBefore.quantity : 0;
+    const row = page.getByTestId('watchlist-table').locator('tbody tr').nth(1);
+    const selectedTicker = (await row.locator('.ticker-cell').innerText()).trim();
+    const positionBefore = beforePortfolio.positions.find((p) => p.ticker === selectedTicker);
+    const qtyBefore = positionBefore ? positionBefore.quantity : 0;
 
-    // Default watchlist selection is AAPL — trade bar shows symbol from watchlist (not a text input)
-    await expect(page.getByTestId('trade-selected-symbol')).toHaveText('AAPL', { timeout: 5000 });
+    // User flow: click a ticker in the watchlist, enter quantity, then buy.
+    await row.click();
+
+    const symbolInput = page.locator('input[name="trade-symbol"]');
+    await expect(symbolInput).toBeVisible({ timeout: 5000 });
+    await expect(symbolInput).toHaveValue(selectedTicker);
 
     const quantityInput = page.getByPlaceholder('Qty');
     await expect(quantityInput).toBeVisible({ timeout: 5000 });
@@ -38,22 +66,31 @@ test.describe('Portfolio', () => {
 
     // Click buy button
     const buyButton = page.getByRole('button', { name: 'Buy' });
+    const tradeResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/portfolio/trade') &&
+        response.request().method() === 'POST',
+    );
     await buyButton.click();
-
-    // Wait for the trade to process
-    await page.waitForTimeout(1000);
+    const tradeResponse = await tradeResponsePromise;
+    expect(tradeResponse.ok()).toBeTruthy();
+    await expect(page.getByRole('button', { name: 'Buy' })).toBeVisible({ timeout: 5000 });
 
     // Verify via API that cash decreased and position quantity increased
-    const afterResponse = await page.request.get('/api/portfolio');
-    const afterPortfolio = await afterResponse.json();
+    const afterPortfolio = await getPortfolio(page);
 
     expect(afterPortfolio.cash_balance).toBeLessThan(cashBefore);
 
-    const aaplAfter = afterPortfolio.positions.find(
-      (p: { ticker: string }) => p.ticker === 'AAPL'
-    );
-    expect(aaplAfter).toBeDefined();
-    expect(aaplAfter.quantity).toBe(qtyBefore + 1);
+    const positionAfter = afterPortfolio.positions.find((p) => p.ticker === selectedTicker);
+    expect(positionAfter).toBeDefined();
+    expect(positionAfter.quantity).toBe(qtyBefore + 1);
+
+    const positionsPanel = page.locator('article', { hasText: 'Positions' });
+    await expect(page.getByTestId('portfolio-cash')).not.toHaveText(formatCash(cashBefore));
+    await expect(positionsPanel).toContainText(selectedTicker);
+    await expect(positionsPanel).toContainText(String(qtyBefore + 1));
+    await expect(page.locator('.inline-success')).toContainText(`BUY 1 ${selectedTicker}`);
+    await expect(page.locator('.inline-error')).toHaveCount(0);
   });
 
   test('sell a share: cash increases, position reduces', async ({ page }) => {
@@ -62,12 +99,11 @@ test.describe('Portfolio', () => {
     await page.waitForTimeout(3000);
 
     // Check current portfolio to find a position we can sell
-    const beforeResponse = await page.request.get('/api/portfolio');
-    const beforePortfolio = await beforeResponse.json();
+    const beforePortfolio = await getPortfolio(page);
 
     // Find any position with quantity >= 1 to sell
     const sellablePosition = beforePortfolio.positions.find(
-      (p: { quantity: number }) => p.quantity >= 1
+      (p) => p.quantity >= 1
     );
 
     // If no position exists, buy one first (use a cheap ticker amount)
@@ -83,30 +119,63 @@ test.describe('Portfolio', () => {
       tickerToSell = 'AAPL';
     }
 
-    const cashBeforeSell = (await (await page.request.get('/api/portfolio')).json()).cash_balance;
+    const portfolioBeforeSell = await getPortfolio(page);
+    const cashBeforeSell = portfolioBeforeSell.cash_balance;
+    const positionBeforeSell = portfolioBeforeSell.positions.find((p) => p.ticker === tickerToSell);
+    const quantityBeforeSell = positionBeforeSell ? positionBeforeSell.quantity : 1;
 
-    // Select the row in the watchlist so the trade bar uses that symbol
-    await page
+    await page.waitForSelector('[data-testid="watchlist-table"] tbody tr', { timeout: 10000 });
+    const sellRow = page
       .getByTestId('watchlist-table')
       .locator('tbody tr')
       .filter({ hasText: tickerToSell })
-      .first()
-      .click();
+      .first();
+    await expect(sellRow).toBeVisible({ timeout: 10000 });
+    await sellRow.click();
 
-    await expect(page.getByTestId('trade-selected-symbol')).toHaveText(tickerToSell, { timeout: 5000 });
+    const symbolInput = page.locator('input[name="trade-symbol"]');
+    await expect(symbolInput).toBeVisible({ timeout: 5000 });
+    await expect(symbolInput).toHaveValue(tickerToSell);
 
     const quantityInput = page.getByPlaceholder('Qty');
     await quantityInput.fill('1');
 
     const sellButton = page.getByRole('button', { name: 'Sell' });
+    const tradeResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/portfolio/trade') &&
+        response.request().method() === 'POST',
+    );
     await sellButton.click();
-
-    await page.waitForTimeout(1000);
+    const tradeResponse = await tradeResponsePromise;
+    expect(tradeResponse.ok()).toBeTruthy();
+    await expect(page.getByRole('button', { name: 'Sell' })).toBeVisible({ timeout: 5000 });
 
     // Cash should increase after selling
-    const afterResponse = await page.request.get('/api/portfolio');
-    const afterPortfolio = await afterResponse.json();
+    const afterPortfolio = await getPortfolio(page);
 
     expect(afterPortfolio.cash_balance).toBeGreaterThan(cashBeforeSell);
+
+    const positionAfterSell = afterPortfolio.positions.find((p) => p.ticker === tickerToSell);
+    expect(positionAfterSell?.quantity ?? 0).toBe(quantityBeforeSell - 1);
+    await expect(page.locator('.inline-error')).toHaveCount(0);
+  });
+
+  test('selected ticker trade controls stay usable on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForSelector('[data-testid="watchlist-table"] tbody tr', { timeout: 10000 });
+
+    const row = page.getByTestId('watchlist-table').locator('tbody tr').nth(1);
+    const selectedTicker = (await row.locator('.ticker-cell').innerText()).trim();
+    await row.click();
+
+    await expect(page.locator('.trading-chart-card h2')).toHaveText(selectedTicker);
+    await expect(page.getByTestId('primary-trading-chart')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('input[name="trade-symbol"]')).toHaveValue(selectedTicker);
+    await expect(page.getByPlaceholder('Qty')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Buy' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sell' })).toBeVisible();
   });
 });

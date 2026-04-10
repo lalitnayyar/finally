@@ -30,7 +30,7 @@ services:
     working_dir: /tests
     volumes:
       - ./:/tests
-    command: npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts
+    command: npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts specs/charts.spec.ts specs/chat.spec.ts specs/portfolio.spec.ts
     environment:
       - BASE_URL=http://app:8000
       - NO_PROXY=app,localhost,127.0.0.1

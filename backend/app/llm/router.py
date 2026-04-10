@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, Request
@@ -18,6 +19,7 @@ from .chat import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
+CHAT_TIMEOUT_SECONDS = 22
 
 
 class ChatRequest(BaseModel):
@@ -29,6 +31,7 @@ async def chat(request: Request, body: ChatRequest):
     try:
         db_path = request.app.state.db_path
         cache = request.app.state.cache
+        source = request.app.state.source
 
         async with get_db(db_path) as conn:
             portfolio = await get_portfolio(conn)
@@ -44,14 +47,16 @@ async def chat(request: Request, body: ChatRequest):
                     current_price = pos["avg_cost"]
                     unrealized_pnl = 0.0
                     pnl_pct = 0.0
-                positions_with_prices.append({
-                    "ticker": pos["ticker"],
-                    "quantity": pos["quantity"],
-                    "avg_cost": pos["avg_cost"],
-                    "current_price": current_price,
-                    "unrealized_pnl": round(unrealized_pnl, 2),
-                    "pnl_pct": round(pnl_pct, 2),
-                })
+                positions_with_prices.append(
+                    {
+                        "ticker": pos["ticker"],
+                        "quantity": pos["quantity"],
+                        "avg_cost": pos["avg_cost"],
+                        "current_price": current_price,
+                        "unrealized_pnl": round(unrealized_pnl, 2),
+                        "pnl_pct": round(pnl_pct, 2),
+                    }
+                )
 
             watchlist_with_prices = []
             for ticker in watchlist_tickers:
@@ -75,9 +80,11 @@ async def chat(request: Request, body: ChatRequest):
             messages.extend(history)
             messages.append({"role": "user", "content": body.message})
 
-            llm_response = call_llm(messages)
+            llm_response = await asyncio.wait_for(
+                asyncio.to_thread(call_llm, messages), timeout=CHAT_TIMEOUT_SECONDS
+            )
 
-            execution_results = await execute_llm_actions(llm_response, conn, cache)
+            execution_results = await execute_llm_actions(llm_response, conn, cache, source)
 
             append_to_history("user", body.message)
             append_to_history("assistant", llm_response.message)

@@ -6,9 +6,12 @@ test.describe('Charts', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
-    // Chart area should be present — look for canvas or SVG elements used by charting libs
-    const chartElement = page.locator('canvas').or(page.locator('svg')).first();
+    const chartElement = page.getByTestId('primary-trading-chart');
     await expect(chartElement).toBeVisible({ timeout: 10000 });
+    await expect(chartElement.locator('.candle rect').first()).toBeVisible({ timeout: 10000 });
+    await expect(chartElement.locator('.ma-line').first()).toBeVisible();
+    await expect(chartElement.locator('.rsi-line')).toBeVisible();
+    await expect(chartElement.locator('.macd-line')).toBeVisible();
   });
 
   test('click a ticker in watchlist updates chart', async ({ page }) => {
@@ -16,15 +19,36 @@ test.describe('Charts', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 
-    // Click on MSFT ticker in the watchlist
-    const msftElement = page.getByText('MSFT', { exact: true }).first();
-    await expect(msftElement).toBeVisible({ timeout: 10000 });
-    await msftElement.click();
+    const msftRow = page
+      .getByTestId('watchlist-table')
+      .locator('tbody tr')
+      .filter({ hasText: 'MSFT' })
+      .first();
+    await expect(msftRow).toBeVisible({ timeout: 10000 });
+    await msftRow.click();
 
-    // After clicking, the chart area or a heading should reflect the selected ticker
-    await expect(
-      page.getByText('MSFT').first()
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.trading-chart-card h2')).toHaveText('MSFT');
+    await expect(page.locator('input[name="trade-symbol"]')).toHaveValue('MSFT');
+    await expect(page.getByTestId('primary-trading-chart').locator('.candle rect').first()).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test('portfolio value chart renders terminal-style performance data', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.request.post('/api/portfolio/trade', {
+      data: { ticker: 'AAPL', side: 'buy', quantity: 1 },
+    });
+
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    const portfolioChart = page.getByTestId('portfolio-value-chart');
+    await expect(portfolioChart).toBeVisible({ timeout: 10000 });
+    await expect(portfolioChart.locator('.portfolio-line')).toHaveCount(1);
+    await expect(portfolioChart.locator('.drawdown-bar').first()).toHaveCount(1);
   });
 
   test('portfolio heatmap section is visible', async ({ page }) => {
