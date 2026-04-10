@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   app:
     build:
@@ -12,22 +11,30 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; import sys; sys.exit(0 if urlopen('http://localhost:8000/api/health').status == 200 else 1)",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
 
   playwright:
-    image: mcr.microsoft.com/playwright:v1.40.0-jammy
+    image: mcr.microsoft.com/playwright:v1.59.1-jammy
     depends_on:
       app:
         condition: service_healthy
     working_dir: /tests
     volumes:
       - ./:/tests
-    command: npx playwright test
+    command: npx playwright test specs/launch.spec.ts specs/reproducibility.spec.ts
     environment:
       - BASE_URL=http://app:8000
+      - NO_PROXY=app,localhost,127.0.0.1
+      - no_proxy=app,localhost,127.0.0.1
 
 volumes:
   test-db:

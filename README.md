@@ -11,78 +11,124 @@ An AI-powered trading workstation with live market data, a simulated portfolio, 
 
 ## Stack
 
-- **Frontend**: Next.js (TypeScript, static export), Tailwind CSS
+- **Frontend**: Next.js (TypeScript, static export)
 - **Backend**: FastAPI (Python, managed by `uv`), SQLite
 - **Real-time**: Server-Sent Events (SSE)
 - **AI**: LiteLLM → OpenRouter → Cerebras (`openai/gpt-oss-120b`)
 - **Deployment**: Single Docker container on port 8000
 
-## Setup
+## Student Launch
 
-1. Copy `.env.example` to `.env` and add your API key:
-   ```
-   OPENROUTER_API_KEY=your-key-here
-   ```
+This is the authoritative v1 path for students.
 
-2. Start:
-   ```bash
-   # macOS/Linux
-   ./scripts/start_mac.sh
-
-   # Windows
-   .\scripts\start_windows.ps1
-   ```
-
-3. Open `http://localhost:8000`
-
-## Troubleshooting
-
-**UI changes not visible after `start_mac.sh` / Docker**
-
-The FastAPI app serves the prebuilt Next.js export from `backend/static/`. That folder is copied into the image at build time. After you change the frontend, rebuild the static files, sync them into `backend/static/`, then rebuild the Docker image:
+1. Copy `.env.example` to `.env`.
+2. Set `OPENROUTER_API_KEY` in `.env`.
+3. Optionally set `MASSIVE_API_KEY` if you want live market data instead of the default simulator.
+4. Start the app:
 
 ```bash
-cd frontend && npm run build:sync
-cd .. && ./scripts/start_mac.sh --build
+# macOS/Linux
+./scripts/start_mac.sh
 ```
 
-On Windows: `.\scripts\start_windows.ps1 --build`
+```powershell
+# Windows PowerShell
+.\scripts\start_windows.ps1
+```
 
-**Wrong `rsync` paths**
+The startup scripts stop before `docker run` if `.env` is missing or `OPENROUTER_API_KEY` is blank. They tell you to use `.env.example` and never print secret values.
 
-From the repo root, use `rsync -a frontend/out/ backend/static/`. From inside `frontend/`, use `npm run sync:static` (see `frontend/package.json`) so paths resolve correctly.
+Open `http://localhost:8000`.
 
-**Docker: “BuildKit is enabled but the buildx component is missing”**
+## Contributor Workflow
 
-The start scripts run `docker build` with the **classic** builder (`DOCKER_BUILDKIT=0`) so a normal Docker install works without the **buildx** plugin. If you prefer BuildKit, install [buildx](https://docs.docker.com/go/buildx/) and you can run builds with `DOCKER_BUILDKIT=1 docker build ...` yourself.
-
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `OPENROUTER_API_KEY` | Yes | OpenRouter key for LLM chat |
-| `MASSIVE_API_KEY` | No | Real market data (omit to use simulator) |
-| `LLM_MOCK` | No | Set `true` for deterministic mock responses (testing) |
-
-## Development
+Docker remains the primary student path. Use this local workflow only for source-level development.
 
 ```bash
 cd backend
-uv venv && uv pip install -e .
+uv sync --dev
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
 ```bash
 cd frontend
-npm install && npm run dev
+npm install
+npm run dev
 ```
+
+## Start And Stop
+
+```bash
+# macOS/Linux
+./scripts/start_mac.sh
+./scripts/stop_mac.sh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\start_windows.ps1
+.\scripts\stop_windows.ps1
+```
+
+Use `--build` with the start scripts when you need a fresh Docker image rebuild.
+
+## Frontend Rebuilds
+
+`backend/static/` is committed generated output from the `frontend/` source tree. After changing the frontend source, rebuild and resync before rebuilding Docker:
+
+```bash
+cd frontend
+npm run build:sync
+cd ..
+./scripts/start_mac.sh --build
+```
+
+On Windows:
+
+```powershell
+cd frontend
+npm run build:sync
+cd ..
+.\scripts\start_windows.ps1 --build
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `OPENROUTER_API_KEY` | Yes | Required for startup and the live AI assistant |
+| `MASSIVE_API_KEY` | No | Optional real market data; omit to use simulator mode |
+| `LLM_MOCK` | No | Set `true` only for deterministic testing/development chat |
 
 ## Testing
 
 ```bash
+# Startup preflight contract
+python3 scripts/test_startup_preflight.py
+```
+
+```bash
 # Backend unit tests
 cd backend && uv run pytest tests/ -v
-
-# E2E tests (requires Docker)
-cd test && docker compose -f docker-compose.test.yml up
 ```
+
+```bash
+# E2E tests (requires Docker)
+cd test && docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from playwright
+```
+
+## Troubleshooting
+
+If startup exits immediately, check these first:
+
+- `.env` exists at the repo root
+- `OPENROUTER_API_KEY` is set in `.env`
+- Docker is installed and running
+
+If the frontend looks stale after a source edit, rebuild the export and resync `backend/static/`:
+
+```bash
+cd frontend && npm run build:sync
+```
+
+If `MASSIVE_API_KEY` is unset, blank, or removed, FinAlly intentionally falls back to the simulator.

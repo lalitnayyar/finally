@@ -26,3 +26,11 @@ Ok i have merged - please switch to main and do a pull, then please carry out al
 
 
 Create an Agent Team to complete the project as defined. Team-members: a Front-end engineer to work on the frontend, a  Backend API Engineer on the backend, a Database engineer on all DB related code, an LLM Engineer on the LLM Calls. While all team -members should work on until tests, there should be an Integration tester team-memeber, that builds and run end-to-end Playwright tests when ready, reporiting issues back to be fixed  by the team-members. Finally , a Devops engineer for the Docker container and the scripts.
+
+## GSD 
+https://github.com/gsd-build/get-shit-done
+
+gsd new project 
+
+What do you want to build?
+Please build the entire project - everything as described in planning/PLAN.md

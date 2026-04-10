@@ -4,6 +4,19 @@ $ImageName = "finally"
 $ContainerName = "finally-app"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectDir = Split-Path -Parent $ScriptDir
+$EnvFile = Join-Path $ProjectDir ".env"
+$PrecheckMessage = "Startup blocked: create .env from .env.example and set OPENROUTER_API_KEY before starting FinAlly."
+
+if (-not (Test-Path $EnvFile)) {
+    Write-Error $PrecheckMessage
+    exit 1
+}
+
+$EnvContent = Get-Content $EnvFile -ErrorAction Stop
+if (-not ($EnvContent | Where-Object { $_ -match '^\s*OPENROUTER_API_KEY\s*=\s*\S+' })) {
+    Write-Error $PrecheckMessage
+    exit 1
+}
 
 # Build if needed or --build flag passed
 $needsBuild = $args -contains "--build"
@@ -27,7 +40,7 @@ docker run -d `
     --name $ContainerName `
     -v finally-data:/app/db `
     -p 8000:8000 `
-    --env-file "$ProjectDir\.env" `
+    --env-file $EnvFile `
     $ImageName
 
 if ($LASTEXITCODE -ne 0) { exit 1 }
